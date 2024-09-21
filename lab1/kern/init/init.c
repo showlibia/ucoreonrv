@@ -34,7 +34,8 @@ int kern_init(void) {
 
     intr_enable();  // enable irq interrupt
 
-    asm volatile("ebreak"::);
+    // asm volatile("ebreak"::);
+    asm volatile("mret" ::);
 
     // LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test

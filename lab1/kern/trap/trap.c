@@ -140,6 +140,8 @@ void exception_handler(struct trapframe *tf) {
         case CAUSE_FAULT_FETCH:
             break;
         case CAUSE_ILLEGAL_INSTRUCTION:
+            cprintf("interrupt instruction address: 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_BREAKPOINT:
             cprintf("ebreak caught at 0x%016llx\n", tf->epc);
@@ -184,4 +186,7 @@ static inline void trap_dispatch(struct trapframe *tf) {
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void trap(struct trapframe *tf) { trap_dispatch(tf); }
+void trap(struct trapframe *tf) {
+    // cprintf("interrupt reason: %d\n", tf->cause);
+    trap_dispatch(tf);
+}
