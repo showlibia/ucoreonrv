@@ -15,6 +15,7 @@ void grade_backtrace(void);
 static void lab1_switch_test(void);
 
 int kern_init(void) {
+
     extern char edata[], end[];
     memset(edata, 0, end - edata);
 
@@ -26,7 +27,8 @@ int kern_init(void) {
     print_kerninfo();
 
     // grade_backtrace();
-
+    
+   
     idt_init();  // init interrupt descriptor table
 
     // rdtime in mbare mode crashes
@@ -34,7 +36,7 @@ int kern_init(void) {
 
     intr_enable();  // enable irq interrupt
 
-    asm volatile("ebreak"::);
+    asm volatile("mret"::);
 
     // LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
