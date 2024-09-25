@@ -69,13 +69,17 @@ static void
 default_init_memmap(struct Page *base, size_t n) {
     assert(n > 0);
     struct Page *p = base;
+    // 确保每页都是保留页，并且将每个也都初始化
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
         p->flags = p->property = 0;
         set_page_ref(p, 0);
     }
+    // 设置空闲页为n
     base->property = n;
+    // 设置base的flag的为10表示freee和not reserved
     SetPageProperty(base);
+    // 设置空闲页为n
     nr_free += n;
     if (list_empty(&free_list)) {
         list_add(&free_list, &(base->page_link));

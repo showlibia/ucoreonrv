@@ -174,6 +174,7 @@ test: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
 		-nographic \
 		-bios default \
 		-device loader,file=$(UCOREIMG),addr=0x80200000
+		
 spike: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
 	$(V)$(SPIKE) $(UCOREIMG)
 

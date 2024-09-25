@@ -40,10 +40,13 @@ static inline bool test_and_clear_bit(int nr, volatile void *addr)
         ((__res & __mask) != 0);                                     \
     })
 
+// op zero %1 -> %0
+// %1: mod(BIT_MASK(nr))
+// %0: addr[BIT_WORD(nr)]          
 #define __op_bit(op, mod, nr, addr)                 \
     __asm__ __volatile__(__AMO(op) " zero, %1, %0"  \
                          : "+A"(addr[BIT_WORD(nr)]) \
-                         : "r"(mod(BIT_MASK(nr))))
+                         : "r"(mod(BIT_MASK(nr))))     
 
 /* Bitmask modifiers */
 #define __NOP(x) (x)

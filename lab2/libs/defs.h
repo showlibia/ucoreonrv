@@ -72,6 +72,7 @@ typedef size_t ppn_t;
  * @type:   the type of the struct this is embedded in
  * @member: the name of the member within the struct
  * */
+// 减去偏移地址后就可以得到基地址
 #define to_struct(ptr, type, member)                               \
     ((type *)((char *)(ptr) - offsetof(type, member)))
 
