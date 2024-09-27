@@ -136,30 +136,52 @@ void interrupt_handler(struct trapframe *tf) {
 void exception_handler(struct trapframe *tf) {
     switch (tf->cause) {
         case CAUSE_MISALIGNED_FETCH:
+            cprintf("misaligned_fetch caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_FAULT_FETCH:
+            cprintf("fault_fetch caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_ILLEGAL_INSTRUCTION:
+            cprintf("illegal_instruction caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_BREAKPOINT:
             cprintf("ebreak caught at 0x%016llx\n", tf->epc);
             tf->epc += 2;
             break;
         case CAUSE_MISALIGNED_LOAD:
+            cprintf("misaligned_load caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_FAULT_LOAD:
+            cprintf("fault_load caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_MISALIGNED_STORE:
+            cprintf("misaligned_store caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_FAULT_STORE:
+            cprintf("fault_store caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_USER_ECALL:
+            cprintf("user_ecall caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_SUPERVISOR_ECALL:
+            cprintf("supervisor_ecall caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_HYPERVISOR_ECALL:
+            cprintf("hypervisor_ecall caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_MACHINE_ECALL:
+            cprintf("machine_ecall caught at 0x%016llx\n", tf->epc);
+            tf->epc += 2;
             break;
         default:
             print_trapframe(tf);
@@ -184,4 +206,8 @@ static inline void trap_dispatch(struct trapframe *tf) {
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void trap(struct trapframe *tf) { trap_dispatch(tf); }
+void trap(struct trapframe *tf) {
+    // cprintf("tf->cause == %d\n",  tf->cause);
+    // cprintf("tf->epc == %d\n", tf->epc);
+    trap_dispatch(tf); 
+}
