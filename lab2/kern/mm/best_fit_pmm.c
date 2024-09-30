@@ -63,29 +63,123 @@ static void
 best_fit_init(void)
 {
  //TODO
+   list_init(&free_list);
+   nr_free = 0;
 }
 
 static void
 best_fit_init_memmap(struct Page *base, size_t n)
 {
  //TODO
-    
+    assert(n > 0);
+    struct Page *p = base;
+    for (; p != base + n; p++) {
+        assert(PageReserved(p));
+        p->flags = p->property = 0;
+        set_page_ref(p, 0);
+    }
+    base->property = n;
+    SetPageProperty(base);
+    nr_free += n;
+    if (list_empty(&free_list)) {
+        list_add(&free_list, &(base->page_link));
+    } else {
+        list_entry_t *le = &free_list;
+        while ((le = list_next(le)) != &free_list) {
+            struct Page *page = le2page(le, page_link);
+            if (base < page) {
+                list_add_before(le, &(base->page_link));
+                break;
+            } else if (list_next(le) == &free_list) {
+                list_add(le, &(base->page_link));
+            }
+        }
+    }
 }
 
 static struct Page *
 best_fit_alloc_pages(size_t n)
 {
-    struct Page *page = NULL;
-    return page;
  //TODO
-
+    assert(n > 0);
+    if (n > nr_free) {
+        return NULL;
+    }
+    struct Page *best_page = NULL;
+    size_t best_size = -1;
+    list_entry_t *le = &free_list;
+    while ((le = list_next(le)) != &free_list) {
+        struct Page *p = le2page(le, page_link);
+        if (p->property >= n && p->property < best_size) {
+            best_page = p;
+            best_size = p->property;
+        }
+    }
+    if (best_page != NULL) {
+        list_entry_t *prev = list_prev(&(best_page->page_link));
+        list_del(&(best_page->page_link));
+        if (best_page->property > n) {
+            struct Page *p = best_page + n;
+            p->property = best_page->property - n;
+            SetPageProperty(p);
+            list_add(prev, &(p->page_link));
+        }
+        nr_free -= n;
+        ClearPageProperty(best_page);
+    }
+    return best_page;
 }
 
 static void
 best_fit_free_pages(struct Page *base, size_t n)
 {
  //TODO
-    
+ assert(n > 0);
+    struct Page *p = base;
+    for (; p != base + n; p++) {
+        assert(!PageReserved(p) && !PageProperty(p));
+        p->flags = 0;
+        set_page_ref(p, 0);
+    }
+    base->property = n;
+    SetPageProperty(base);
+    nr_free += n;
+
+    if (list_empty(&free_list)) {
+        list_add(&free_list, &(base->page_link));
+    } else {
+        list_entry_t *le = &free_list;
+        while ((le = list_next(le)) != &free_list) {
+            struct Page *page = le2page(le, page_link);
+            if (base < page) {
+                list_add_before(le, &(base->page_link));
+                break;
+            } else if (list_next(le) == &free_list) {
+                list_add(le, &(base->page_link));
+            }
+        }
+    }
+
+    list_entry_t *le = list_prev(&(base->page_link));
+    if (le != &free_list) {
+        p = le2page(le, page_link);
+        if (p + p->property == base) {
+            p->property += base->property;
+            ClearPageProperty(base);
+            list_del(&(base->page_link));
+            base = p;
+        }
+    }
+
+    le = list_next(&(base->page_link));
+    if (le != &free_list) {
+        p = le2page(le, page_link);
+        if (base + base->property == p) {
+            base->property += p->property;
+            ClearPageProperty(p);
+            list_del(&(p->page_link));
+        }
+    }
 }
 
 static size_t
@@ -232,7 +326,7 @@ best_fit_check(void)
 }
 //这个结构体在
 const struct pmm_manager best_fit_pmm_manager = {
-        .name = "best_fit_pmm_manager",
+    .name = "best_fit_pmm_manager",
     .init = best_fit_init,
     .init_memmap = best_fit_init_memmap,
     .alloc_pages = best_fit_alloc_pages,
