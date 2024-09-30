@@ -77,9 +77,9 @@ default_init_memmap(struct Page *base, size_t n) {
     base->property = n;
     SetPageProperty(base);
     nr_free += n;
-    if (list_empty(&free_list)) {
+    if (list_empty(&free_list)) { // 如果是第一次初始化
         list_add(&free_list, &(base->page_link));
-    } else {
+    } else { // 增加分配页面
         list_entry_t* le = &free_list;
         while ((le = list_next(le)) != &free_list) {
             struct Page* page = le2page(le, page_link);
