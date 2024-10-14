@@ -86,7 +86,6 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
-    //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
      *       enum proc_state state;                      // Process state
@@ -102,6 +101,19 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+        proc->state = PROC_UNINIT;            // 初始化进程状态为未初始化
+        proc->pid = -1;                       // 进程 ID，默认值 -1，稍后会分配真正的 PID
+        proc->runs = 0;                       // 运行次数初始化为 0
+        proc->kstack = 0;                     // 进程的内核栈，初始设为 0，稍后会分配真正的内核栈
+        proc->need_resched = 0;               // 不需要调度，初始设置为 false
+        proc->parent = NULL;                  // 父进程，初始设置为 NULL
+        proc->mm = NULL;                      // 进程的内存管理结构，初始设为 NULL
+        memset(&(proc->context), 0, sizeof(struct context)); // 初始化上下文为 0
+        proc->tf = NULL;                      // 中断 trapframe，初始设为 NULL
+        proc->cr3 = 0;                        // CR3 寄存器，初始化为 0
+        proc->flags = 0;                      // 进程标志位，初始设置为 0
+        memset(proc->name, 0, PROC_NAME_LEN + 1); // 进程名称初始化为空字符串
+
     }
     return proc;
 }
@@ -190,9 +202,11 @@ hash_proc(struct proc_struct *proc) {
 // find_proc - find proc frome proc hash_list according to pid
 struct proc_struct *
 find_proc(int pid) {
+    cprintf("%d--1\n",pid);
     if (0 < pid && pid < MAX_PID) {
         list_entry_t *list = hash_list + pid_hashfn(pid), *le = list;
         while ((le = list_next(le)) != list) {
+            cprintf("%d--2\n",pid);
             struct proc_struct *proc = le2proc(le, hash_link);
             if (proc->pid == pid) {
                 return proc;
@@ -289,13 +303,39 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
      *   nr_process:   the number of process set
      */
 
-    //    1. call alloc_proc to allocate a proc_struct
-    //    2. call setup_kstack to allocate a kernel stack for child process
-    //    3. call copy_mm to dup OR share mm according clone_flag
-    //    4. call copy_thread to setup tf & context in proc_struct
-    //    5. insert proc_struct into hash_list && proc_list
-    //    6. call wakeup_proc to make the new child process RUNNABLE
+    proc = alloc_proc();
+    if (proc == NULL) 
+    {
+        goto fork_out;
+    }
+    if (setup_kstack(proc) != 0)
+    {
+        goto bad_fork_cleanup_proc;
+    }
+    if (copy_mm(clone_flags, proc) != 0) 
+    {
+        goto bad_fork_cleanup_kstack;
+    }
+    copy_thread(proc, stack, tf);
+    bool intr_flag;
+    local_intr_save(intr_flag);//屏蔽中断，intr_flag置为1
+    {
+        proc->pid = get_pid();//获取当前进程PID
+        hash_proc(proc); //建立hash映射
+        list_add(&proc_list, &(proc->list_link));//加入进程链表
+        nr_process ++;//进程数加一
+    }
+    local_intr_restore(intr_flag);//恢复中断
+
+    proc->state = PROC_RUNNABLE;
+
+
     //    7. set ret vaule using child proc's pid
+    ret = proc->pid;
+   // cprintf("%d*****\n",ret);
+
+  
+
 fork_out:
     return ret;
 
@@ -349,15 +389,20 @@ proc_init(void) {
     current = idleproc;
 
     int pid = kernel_thread(init_main, "Hello world!!", 0);
+   // cprintf("779999*****************\n");
     if (pid <= 0) {
         panic("create init_main failed.\n");
     }
 
     initproc = find_proc(pid);
+    if(initproc == NULL)  cprintf("779999*****************\n");
+    //cprintf("%d*****************\n",initproc->pid);
     set_proc_name(initproc, "init");
-
+    
+   // cprintf("%d*****************\n",initproc->pid);
     assert(idleproc != NULL && idleproc->pid == 0);
     assert(initproc != NULL && initproc->pid == 1);
+    
 }
 
 // cpu_idle - at the end of kern_init, the first kernel thread idleproc will do below works
