@@ -85,6 +85,7 @@ void switch_to(struct context *from, struct context *to);
 static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
+    // cprintf("proc == %p\n", proc);
     if (proc != NULL) {
     //LAB4:EXERCISE1 YOUR CODE
     /*
@@ -102,6 +103,18 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+        proc->state = PROC_UNINIT;//给进程设置为未初始化状态
+        proc->pid = -1;//未初始化的进程，其pid为-1
+        proc->runs = 0;//初始化时间片,刚刚初始化的进程，运行时间一定为零	
+        proc->kstack = 0;//内核栈地址,该进程分配的地址为0，因为还没有执行，也没有被重定位，因为默认地址都是从0开始的。
+        proc->need_resched = 0;//不需要调度
+        proc->parent = NULL;//父进程为空
+        proc->mm = NULL;//虚拟内存为空
+        memset(&(proc->context), 0, sizeof(struct context));//初始化上下文
+        proc->tf = NULL;//中断帧指针为空
+        proc->cr3 = 0;//页目录为内核页目录表的基址
+        proc->flags = 0; //标志位为0
+        memset(proc->name, 0, PROC_NAME_LEN + 1);//进程名为0
     }
     return proc;
 }
@@ -296,6 +309,28 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+    
+    if ((proc = alloc_proc()) == NULL) 
+        goto fork_out;
+    if (setup_kstack(proc) != 0) 
+        goto bad_fork_cleanup_proc;
+    if (copy_mm(clone_flags, proc) != 0) 
+        goto bad_fork_cleanup_kstack;
+
+    copy_thread(proc, stack, tf);
+    bool intr_flag;
+    local_intr_save(intr_flag);//屏蔽中断，intr_flag置为1
+    {
+        proc->pid = get_pid();//获取当前进程PID
+        hash_proc(proc); //建立hash映射
+        list_add(&proc_list, &(proc->list_link));//加入进程链表
+        nr_process ++;//进程数加一
+    }
+    local_intr_restore(intr_flag);//恢复中断
+
+    proc->state = PROC_RUNNABLE;
+
+    ret = proc->pid;//7.返回当前进程的PID
 fork_out:
     return ret;
 
