@@ -33,8 +33,11 @@ list_entry_t pra_list_head, *curr_ptr;
 static int
 _clock_init_mm(struct mm_struct *mm)
 {     //TODO
-     //cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
-     return 0;
+    list_init(&pra_list_head);
+    mm->sm_priv = &pra_list_head;
+    curr_ptr = &pra_list_head;
+    //cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
+    return 0;
 }
 /*
  * (3)_fifo_map_swappable: According FIFO PRA, we should link the most recent arrival page at the back of pra_list_head qeueue
@@ -42,10 +45,11 @@ _clock_init_mm(struct mm_struct *mm)
 static int
 _clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int swap_in)
 {
- //TODO
-    //record the page access situlation
-    /*LAB3 EXERCISE 2: YOUR CODE*/ 
-    //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
+    list_entry_t *head=(list_entry_t*) mm->sm_priv;
+    list_entry_t *entry=&(page->pra_page_link);
+ 
+    assert(entry != NULL && head != NULL);
+    list_add_before(head, entry);
     page->visited = 1;
     return 0;
 }
@@ -56,19 +60,32 @@ _clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, in
 static int
 _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
-     //TODO
-     /* Select the victim */
-     /*LAB3 EXERCISE 2: YOUR CODE*/ 
-     //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
-     //(2)  set the addr of addr of this page to ptr_page
+    list_entry_t *head=(list_entry_t*) mm->sm_priv;
+        assert(head != NULL);
+    assert(in_tick==0);
+    while (1) {
+        curr_ptr = list_next(curr_ptr);
+        // cprintf("curr_ptr == %p\n", curr_ptr);
+        if (curr_ptr == head) {
+            continue;
+        }
+        struct Page * p = le2page(curr_ptr, pra_page_link);
+        if (p->visited == 1) {
+            p->visited = 0;
+        } else {
+            list_del(curr_ptr);
+            *ptr_page = p;
+            return 0;
+        }
+
+    }
     
-    return 0;
 }
 static int
 _clock_check_swap(void) {
 #ifdef ucore_test
     int score = 0, totalscore = 5;
-    cprintf("%d\n", &score);
+    // cprintf("%d\n", &score);
     ++ score; cprintf("grading %d/%d points", score, totalscore);
     *(unsigned char *)0x3000 = 0x0c;
     assert(pgfault_num==4);
