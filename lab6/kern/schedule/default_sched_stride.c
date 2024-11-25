@@ -42,6 +42,9 @@ stride_init(struct run_queue *rq) {
       * (2) init the run pool: rq->lab6_run_pool
       * (3) set number of process: rq->proc_num to 0       
       */
+     list_init(&(rq->run_list));//初始化调度器类
+     rq->lab6_run_pool = NULL;//对斜堆进行初始化，表示有限队列空
+     rq->proc_num = 0;//设置运行队列为空
 }
 
 /*
@@ -68,6 +71,12 @@ stride_enqueue(struct run_queue *rq, struct proc_struct *proc) {
       * (3) set proc->rq pointer to rq
       * (4) increase rq->proc_num
       */
+     rq->lab6_run_pool = skew_heap_insert(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
+       if (proc->time_slice == 0 || proc->time_slice > rq->max_time_slice) {
+     proc->time_slice = rq->max_time_slice;//将该进程剩余时间置为时间片大小
+     }
+     proc->rq = rq;//更新进程的就绪队列
+     rq->proc_num ++;//维护就绪队列中进程的数量加—
 }
 
 /*
@@ -86,6 +95,8 @@ stride_dequeue(struct run_queue *rq, struct proc_struct *proc) {
       *         skew_heap_remove: remove a entry from skew_heap
       *         list_del_init: remove a entry from the  list
       */
+      rq->lab6_run_pool = skew_heap_remove(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
+     rq->proc_num --;
 }
 /*
  * stride_pick_next pick the element from the ``run-queue'', with the
@@ -109,6 +120,14 @@ stride_pick_next(struct run_queue *rq) {
       * (2) update p;s stride value: p->lab6_stride
       * (3) return p
       */
+       if (rq->lab6_run_pool == NULL) return NULL;
+     struct proc_struct *p = le2proc(rq->lab6_run_pool, lab6_run_pool);//选择stride值最小的进程
+     if (p->lab6_priority == 0)//优先级为 0
+          p->lab6_stride += BIG_STRIDE;//步长设置为最大值
+     else
+          p->lab6_stride += BIG_STRIDE / p->lab6_priority;
+     //步长设置为优先级的倒数，更新该进程的 stride 值
+     return p;
 }
 
 /*
@@ -122,6 +141,12 @@ stride_pick_next(struct run_queue *rq) {
 static void
 stride_proc_tick(struct run_queue *rq, struct proc_struct *proc) {
      /* LAB6: YOUR CODE */
+     if (proc->time_slice > 0) {//到达时间片
+     proc->time_slice --;//执行进程的时间片 time_slice 减—
+     }
+     if (proc->time_slice == 0) {//时间片为 0
+     proc->need_resched = 1;//设置此进程成员变量 need_resched 标识为 1，进程需要调度
+     }
 }
 
 struct sched_class default_sched_class = {
