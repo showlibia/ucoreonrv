@@ -12,11 +12,8 @@ int main() {
     close(fp);
     cprintf("\n===============\n");
     cprintf(buff);
-    char temp1[10] = "yuanshen!";
     cprintf("\n===============\n");
-    char temp3[100] = "mingrifangzhou";
     cprintf(buff);
-    char temp[10] = "qidong!";
     cprintf("\n===============\n");
     return 0;
 }

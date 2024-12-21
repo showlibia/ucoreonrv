@@ -52,20 +52,24 @@ static const char * const error_string[MAXERROR + 1] = {
  * */
 static void
 printnum(void (*putch)(int, void*, int), int fd, void *putdat,
-        unsigned long long num, unsigned base, int width, int padc) {
+        unsigned long long num, unsigned base, int width, int padc, int *cnt) {
     unsigned long long result = num;
     unsigned mod = do_div(result, base);
 
     // first recursively print all preceding (more significant) digits
     if (num >= base) {
-        printnum(putch, fd, putdat, result, base, width - 1, padc);
+        printnum(putch, fd, putdat, result, base, width - 1, padc, cnt);
     } else {
         // print any needed pad characters before first digit
-        while (-- width > 0)
+        while (-- width > 0) {
             putch(padc, putdat, fd);
+            *cnt++;
+        }
+
     }
     // then print this (the least significant) digit
     putch("0123456789abcdef"[mod], putdat, fd);
+    *cnt++;
 }
 
 /* *
@@ -138,6 +142,7 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
     register int ch, err;
     unsigned long long num;
     int base, width, precision, lflag, altflag;
+    int out_cnt = 0;
 
     while (1) {
         while ((ch = *(unsigned char *)fmt ++) != '%') {
@@ -145,6 +150,7 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
                 return;
             }
             putch(ch, putdat, fd);
+            out_cnt++;
         }
 
         // Process a %-escape sequence
@@ -202,6 +208,7 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
         // character
         case 'c':
             putch(va_arg(ap, int), putdat, fd);
+            out_cnt++;
             break;
 
         // error message
@@ -226,18 +233,22 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
             if (width > 0 && padc != '-') {
                 for (width -= strnlen(p, precision); width > 0; width --) {
                     putch(padc, putdat, fd);
+                    out_cnt++;
                 }
             }
             for (; (ch = *p ++) != '\0' && (precision < 0 || -- precision >= 0); width --) {
                 if (altflag && (ch < ' ' || ch > '~')) {
                     putch('?', putdat, fd);
+                    out_cnt++;
                 }
                 else {
                     putch(ch, putdat, fd);
+                    out_cnt++;
                 }
             }
             for (; width > 0; width --) {
                 putch(' ', putdat, fd);
+                out_cnt++;
             }
             break;
 
@@ -246,6 +257,7 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
             num = getint(&ap, lflag);
             if ((long long)num < 0) {
                 putch('-', putdat, fd);
+                out_cnt++;
                 num = -(long long)num;
             }
             base = 10;
@@ -266,7 +278,9 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
         // pointer
         case 'p':
             putch('0', putdat, fd);
+            out_cnt++;
             putch('x', putdat, fd);
+            out_cnt++;
             num = (unsigned long long)(uintptr_t)va_arg(ap, void *);
             base = 16;
             goto number;
@@ -276,17 +290,26 @@ vprintfmt(void (*putch)(int, void*, int), int fd, void *putdat, const char *fmt,
             num = getuint(&ap, lflag);
             base = 16;
         number:
-            printnum(putch, fd, putdat, num, base, width, padc);
+            printnum(putch, fd, putdat, num, base, width, padc, &out_cnt);
             break;
+        case 'n': {
+            int *ptr = va_arg(ap, int *); // 提取参数
+            if (ptr != NULL) {
+                *ptr = *((int*) putdat); // 将输出的字符数写入指针
+            }
+            break;
+        }
 
         // escaped '%' character
         case '%':
             putch(ch, putdat, fd);
+            out_cnt++;
             break;
 
         // unrecognized escape sequence - just print it literally
         default:
             putch('%', putdat, fd);
+            out_cnt++;
             for (fmt --; fmt[-1] != '%'; fmt --)
                 /* do nothing */;
             break;

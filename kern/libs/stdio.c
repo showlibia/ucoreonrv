@@ -47,6 +47,10 @@ cprintf(const char *fmt, ...) {
     return cnt;
 }
 
+int cprintf_s(const char *fmt, int arg_num, ...) {
+    
+}
+
 /* cputchar - writes a single character to stdout */
 void
 cputchar(int c) {
